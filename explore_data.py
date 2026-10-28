@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 import argparse
 
 DEFAULT_DATASET = "winequality_data.csv"
 DEFAULT_NUMERICAL_ANALYSIS_COLUMNS = ['pH', 'alcohol']
+DEFAULT_OUTPUT_NAMESPACE = "lucas_hautrive_47611472_"
 
 verbose = False
 
@@ -95,10 +98,67 @@ def plot_histogram(pandas_dataframe):
         ax.set_xlabel("Alcohol Content (%)")
         ax.set_ylabel("Frequency")
 
-    plt.suptitle("Alcohol Content Distribution by Wine Quality")
-    plt.tight_layout()
+    fig.suptitle("Alcohol Content Distribution by Wine Quality")
+    fig.tight_layout()
+    
     if verbose:
         plt.show()
+    
+    return fig
+
+def multi_variable_scatterplot(pandas_dataframe):
+    log('Creating a scatterplot of the data.')
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+
+    scatter_plot = ax.scatter(
+        pandas_dataframe["alcohol"],
+        pandas_dataframe["volatile acidity"],
+        c=pandas_dataframe["quality"],
+        cmap="viridis",
+        s=25,
+        alpha=0.65,
+        edgecolors="none"
+    )
+
+    # Title and axis labels
+    ax.set_title("Alcohol Content vs Volatile Acidity by Wine Quality", fontsize=14, pad=12)
+    ax.set_xlabel("Alcohol Content (% ABV)", fontsize=11)
+    ax.set_ylabel("Volatile Acidity (g/dm³)", fontsize=11)
+
+    # Colourbar explains what the colours represent
+    colourbar = fig.colorbar(scatter_plot, ax=ax)
+    colourbar.set_label("Wine Quality Score", fontsize=11)
+
+    # Improve readability
+    ax.grid(True, linestyle="--", alpha=0.25)
+    fig.tight_layout()
+
+    if verbose:
+        plt.show()
+    
+    return scatter_plot
+
+def seaborn_pair_plot(pandas_dataframe):
+    log("Creating a pairplot of the data")
+    
+    columns = ["alcohol", "volatile acidity", "sulphates", "density", "pH", "quality"]
+    plot_data = pandas_dataframe[columns]
+    
+    pairplot = sns.pairplot(
+        plot_data,
+        hue="quality",
+        diag_kind="hist",
+        corner=True,
+        plot_kws={"alpha": 0.5, "s": 15},
+        diag_kws={"bins": 15}
+    )
+    pairplot.figure.suptitle("Plots of the Intersection Between Wine Characteristics and Quality", y=1.02)
+
+    if verbose:
+        plt.show()
+        
+    return pairplot
 
 def main():
     parser = argparse.ArgumentParser(
@@ -108,7 +168,9 @@ def main():
     )
 
     parser.add_argument('-p', '--path', type=str, default=DEFAULT_DATASET, help="File path to the dataset.")
-    parser.add_argument('-v', '--verbose', action='store_true', help="Verbose outputs enabled.")
+    parser.add_argument('-o', '--output', type=str, default=DEFAULT_OUTPUT_NAMESPACE, help="The namespace used to name the output files.")
+    parser.add_argument('-v', '--verbose', action='store_true', help="Verbose outputs enabled. To visualise charts/diagrams/plots, this flag must be set.")
+    parser.add_argument('-e', '--export', action='store_true', help="Auto export charts/diagrams/plots.")
     parser.add_argument('-c', '--columns', type=str, nargs='+', default=DEFAULT_NUMERICAL_ANALYSIS_COLUMNS, help="Columns in the dataset to perform numerical analysis on.") 
     
     args = parser.parse_args()
@@ -116,6 +178,8 @@ def main():
     columns = args.columns
     global verbose
     verbose = args.verbose
+    is_exporting = args.export
+    output_namespace = args.output
     
     # 1. Initial loading
     pandas_dataframe = load_dataset(path)
@@ -133,6 +197,22 @@ def main():
     perform_numerical_analysis(pandas_dataframe, columns)
     
     # 4. Simple plot
-    plot_histogram(pandas_dataframe)
+    histogram = plot_histogram(pandas_dataframe)
+    if is_exporting:
+        log('Exporting the histogram to file...')
+        histogram.savefig(output_namespace + "histogram.png", dpi=300, bbox_inches="tight")
+    
+    # 5. Multi-variable scatterplot
+    mv_scatterplot = multi_variable_scatterplot(pandas_dataframe)
+    if is_exporting:
+        log('Exporting the scatterplot to file...')
+        mv_scatterplot.figure.savefig(output_namespace + "scatterplot.png", dpi=300, bbox_inches="tight")
+    
+    # 6. Extension task
+    pair_plot = seaborn_pair_plot(pandas_dataframe)
+    if is_exporting:
+        log('Exporting the seaborn pairplot to file...')
+        pair_plot.figure.savefig(output_namespace + "pairplot.png", dpi=300, bbox_inches="tight")
+        
 if __name__ == "__main__":
     main()
